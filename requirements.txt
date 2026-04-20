@@ -1,0 +1,11 @@
+kagglehub
+xgboost 
+scikit-learn 
+pandas 
+matplotlib
+statsmodels
+prophet
+numpy
+plotly
+pmdarima
+statsmodels
