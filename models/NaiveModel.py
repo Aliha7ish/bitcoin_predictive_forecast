@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from BaseForecastModel import BaseForecastModel
+from .BaseForecastModel import BaseForecastModel
 
 class NaiveModel(BaseForecastModel):
 

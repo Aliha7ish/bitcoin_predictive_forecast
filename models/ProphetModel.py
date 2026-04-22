@@ -2,7 +2,7 @@
 from prophet import Prophet
 from prophet.diagnostics import cross_validation, performance_metrics
 from sklearn.model_selection import ParameterGrid
-from BaseForecastModel import BaseForecastModel
+from .BaseForecastModel import BaseForecastModel
 
 
 class ProphetModel(BaseForecastModel):

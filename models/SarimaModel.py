@@ -4,7 +4,7 @@ import numpy as np
 # ARIMA / SARIMA Modules
 from statsmodels.tsa.stattools import adfuller
 from pmdarima import auto_arima
-from BaseForecastModel import BaseForecastModel
+from .BaseForecastModel import BaseForecastModel
 
 class SarimaModel(BaseForecastModel):
 

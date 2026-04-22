@@ -4,10 +4,11 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
-from MLModel import MLModel
-from NaiveModel import NaiveModel
-from ProphetModel import ProphetModel
-from SarimaModel import SarimaModel
+
+from .MLModel import MLModel
+from .NaiveModel import NaiveModel
+from .ProphetModel import ProphetModel
+from .SarimaModel import SarimaModel
 
 
 class ForecastEngine:
@@ -23,7 +24,6 @@ class ForecastEngine:
             "sarima": SarimaModel,
             "prophet": ProphetModel,
             "xgb": lambda df: MLModel(df, "xgb"),
-            "svm": lambda df: MLModel(df, "svm"),
             "hybrid": lambda df: MLModel(df, "hybrid"),
         }
 
@@ -71,7 +71,7 @@ class ForecastEngine:
         print(f"Using model: {model_type}")
         print(f"Horizon: {horizon} steps")
 
-        forecast_df = model.forecast(horizon=horizon, ci=ci, freq="D")
+        forecast_df = model.forecast(horizon=horizon, ci=ci)
 
         return forecast_df
 
@@ -155,7 +155,6 @@ class ForecastEngine:
         # SPLIT LINES (IMPORTANT VISUAL CUE)
         # =====================================
         train_end = train["ds"].iloc[-1]
-        test_end = test["ds"].iloc[-1]
 
         fig.add_shape(
             type="line",
@@ -165,21 +164,31 @@ class ForecastEngine:
             y1=1,
             xref="x",
             yref="paper",
-            line=dict(color="white", width=2, dash="dash")
+            line=dict(
+                color="yellow",
+                width=4,
+                dash="dash"
+            ),
+            layer="above"   # 🔥 IMPORTANT
         )
 
-
-        fig.add_shape(
-            type="line",
-            x0=test_end,
-            x1=test_end,
-            y0=0,
-            y1=1,
-            xref="x",
-            yref="paper",
-            line=dict(color="red", width=2, dash="dash")
+        fig.add_vrect(
+            x0=self.df["ds"].min(),
+            x1=train_end,
+            fillcolor="blue",
+            opacity=0.05,
+            line_width=0,
+            layer="below"
         )
 
+        fig.add_vrect(
+            x0=train_end,
+            x1=self.df["ds"].max(),
+            fillcolor="orange",
+            opacity=0.05,
+            line_width=0,
+            layer="below"
+        )
 
         # =====================================
         # LAYOUT
@@ -193,7 +202,7 @@ class ForecastEngine:
 
         fig.update_xaxes(rangeslider_visible=True)
 
-        fig.show()
+        return fig
 
 
     # =====================================
