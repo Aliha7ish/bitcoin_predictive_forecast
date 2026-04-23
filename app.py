@@ -240,7 +240,12 @@ if run_btn:
 
                 cols = st.columns(4)
                 for i, k in enumerate(["MAE", "RMSE", "MAPE", "R2 Score"]):
-                    cols[i].metric(k, f"{metrics[k]:.3f}")
+                    if k in ["MAE", "RMSE"]:
+                        cols[i].metric(k, f"${metrics[k]:.3f}")
+                    elif k == "MAPE":
+                        cols[i].metric(k, f"{metrics[k]:.3f}%")
+                    else:
+                        cols[i].metric(k, f"{metrics[k]:.3f}")
 
                 st.plotly_chart(
                     engine.plot_backtest(train, test, test_forecast),
