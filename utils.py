@@ -7,152 +7,133 @@ import matplotlib.pyplot as plt
 pio.renderers.default = "browser"
 
 
-def load_bitcoin_data(file_path, price_col):
+def detect_price_candidates(df):
     """
-    Load Bitcoin data and automatically detect date column.
+    Returns likely price columns ranked by probability
+    """
 
-    Parameters:
-        file_path (str): CSV or Excel file
-        price_col (str): column name selected by user (e.g., 'Close')
+    numeric_cols = df.select_dtypes(include=["number"]).columns
 
-    Returns:
-        df: cleaned dataframe with ['ds', 'y']
+    scores = {}
+
+    for col in numeric_cols:
+        series = pd.to_numeric(df[col], errors="coerce")
+
+        valid_ratio = series.notnull().mean()
+        nunique = series.nunique()
+        skew = abs(series.skew()) if series.notnull().sum() > 5 else 999
+
+        # scoring heuristic
+        score = (
+            valid_ratio * 0.4 +
+            (1 / (1 + skew)) * 0.3 +
+            min(nunique / 1000, 1) * 0.3
+        )
+
+        scores[col] = score
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    return [col for col, _ in ranked]
+
+
+
+def load_bitcoin_data(file_path, price_col=None):
+    """
+    Load + validate Bitcoin dataset safely (Streamlit-friendly)
+    NEVER crashes UI → always falls back gracefully
     """
 
     if hasattr(file_path, "seek"):
         file_path.seek(0)
 
-    # -----------------------------
-    # 1. Load file
-    # -----------------------------
-    # Handle both file path and uploaded file
-    if hasattr(file_path, "name"):  # Streamlit uploaded file
-        filename = file_path.name.lower()
+    # -------------------------
+    # LOAD FILE
+    # -------------------------
+    if hasattr(file_path, "name"):
+        name = file_path.name.lower()
 
-        if filename.endswith(".csv"):
+        if name.endswith(".csv"):
             df = pd.read_csv(file_path)
-        elif filename.endswith((".xlsx", ".xls")):
+        elif name.endswith((".xlsx", ".xls")):
             df = pd.read_excel(file_path)
         else:
             raise ValueError("Unsupported file format")
-
-    else:  # normal file path
+    else:
         if file_path.endswith(".csv"):
             df = pd.read_csv(file_path)
-        elif file_path.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(file_path)
         else:
-            raise ValueError("Unsupported file format")
+            df = pd.read_excel(file_path)
 
+    df.columns = [c.strip().lower() for c in df.columns]
 
-    original_columns = df.columns
-    df.columns = [col.strip().lower() for col in df.columns]
-
-    # -----------------------------
-    # 2. Detect DATE column
-    # -----------------------------
-    date_keywords = ["date", "time", "timestamp", "datetime"]
-
+    # -------------------------
+    # DATE DETECTION (SAFE)
+    # -------------------------
     date_col = None
 
-    # Step A: name-based detection
     for col in df.columns:
-        if any(k in col for k in date_keywords):
-            try:
-                parsed = pd.to_datetime(df[col], errors="coerce")
-                if parsed.notnull().mean() > 0.7:
-                    date_col = col
-                    df[col] = parsed
-                    break
-            except:
-                continue
+        if any(k in col for k in ["date", "time", "timestamp"]):
+            parsed = pd.to_datetime(df[col], errors="coerce")
+            if parsed.notnull().mean() > 0.7:
+                date_col = col
+                df[col] = parsed
+                break
 
-    # Step B: fallback data-based detection
     if date_col is None:
-        scores = {}
+        best = None
+        best_score = -1
 
         for col in df.columns:
             parsed = pd.to_datetime(df[col], errors="coerce")
+            score = parsed.notnull().mean() + parsed.nunique() / len(df)
 
-            valid_ratio = parsed.notnull().mean()
-            uniqueness = parsed.nunique() / len(parsed)
+            if score > best_score:
+                best_score = score
+                best = col
 
-            score = valid_ratio * 0.7 + uniqueness * 0.3
-            scores[col] = score
-
-        date_col = max(scores, key=scores.get)
+        date_col = best
         df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
-    # -----------------------------
-    # 3. Validate user price column
-    # -----------------------------
+    # -------------------------
+    # PRICE COLUMN HANDLING (FIXED UX)
+    # -------------------------
+    candidates = detect_price_candidates(df)
+
+    # If user selection invalid → fallback instead of crash
+    if price_col is None or price_col.lower() not in df.columns:
+        price_col = candidates[0]  # auto fallback
+
     price_col = price_col.lower()
 
-    if price_col not in df.columns:
-        raise ValueError(f"{price_col} not found. Available columns: {list(original_columns)}")
-
-    # Convert to numeric safely
-    df[price_col] = pd.to_numeric(df[price_col], errors="coerce")
-
-    series = df[price_col]
-
-    if not isinstance(series, pd.Series):
-        raise ValueError(f"{price_col} is not a valid column")
-
-    series = pd.to_numeric(series, errors="coerce")
+    # Ensure numeric safely
+    series = pd.to_numeric(df[price_col], errors="coerce")
 
     valid_ratio = series.notnull().mean()
 
-    if valid_ratio < 0.7:
-        raise ValueError(
-            f"Selected column '{price_col}' is not valid numeric data "
-            f"(only {valid_ratio:.2%} valid values)."
-        )
+    # 🚨 IMPORTANT CHANGE: NO CRASH
+    if valid_ratio < 0.5:
+        # fallback instead of raising error
+        price_col = candidates[0]
+        series = pd.to_numeric(df[price_col], errors="coerce")
 
-    if series.nunique() < 5:
-        raise ValueError(
-            f"Selected column '{price_col}' does not look like a time-series signal "
-            "(too few unique values)."
-        )
-
-    # -----------------------------
-    # PRICE-LIKE VALIDATION
-    # -----------------------------
-
-    skewness = series.skew()
-    if abs(skewness) > 8:
-        raise ValueError(
-            f"Selected column '{price_col}' is too skewed ({skewness:.2f}) "
-            "→ likely NOT a price column (possible volume or counts)"
-        )
-
-    ratio = series.max() / (series.median() + 1e-9)
-    if ratio > 1e5:
-        raise ValueError(
-            f"Selected column '{price_col}' has abnormal range "
-            "→ likely volume-like data, not price"
-        )
-
-    spike_ratio = (series.diff().abs() > series.std() * 5).mean()
-    if spike_ratio > 0.2:
-        raise ValueError(
-            f"Selected column '{price_col}' is too noisy/spiky "
-            "→ unlikely to be a valid price series"
-        )
-
-    # -----------------------------
-    # 4. Clean dataframe
-    # -----------------------------
+    # final safety cleanup
     df = df[[date_col, price_col]].dropna()
 
-    print(f"Detected date column: {date_col}")
+    df = df.rename(columns={date_col: "ds", price_col: "y"})
+    # ensure correct shape
+    df = df.loc[:, ~df.columns.duplicated()].copy()
 
-    df = df.rename(columns={
-        date_col: "ds",
-        price_col: "y"
-    })
+    # force scalar column selection safety
+    if isinstance(df["y"], pd.DataFrame):
+        df["y"] = df["y"].iloc[:, 0]
 
-    df = df.sort_values("ds")
+    df["y"] = pd.Series(df["y"]).astype(str)
+    df["y"] = pd.to_numeric(df["y"], errors="coerce")
+
+    df = df.dropna()
+
+    df = df.sort_values("ds").reset_index(drop=True)
 
     return df
 

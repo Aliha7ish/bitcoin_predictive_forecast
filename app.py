@@ -3,9 +3,13 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from models.ForecastEngine import ForecastEngine
-from utils import load_bitcoin_data, preprocess_data, resample_data
+from utils import load_bitcoin_data, preprocess_data, resample_data, detect_price_candidates
 from helpers import plot_forecast
 
+
+# =========================
+# PAGE CONFIG
+# =========================
 st.set_page_config(
     page_title="Bitcoin Forecasting",
     layout="wide",
@@ -13,12 +17,11 @@ st.set_page_config(
 )
 
 # =========================
-# CSS (React-like UI)
+# CSS (UPDATED)
 # =========================
 def load_css():
     st.markdown("""
     <style>
-
     .stApp {
         background: linear-gradient(135deg, #0f172a, #020617);
         color: white;
@@ -39,6 +42,7 @@ def load_css():
         border-radius: 14px;
         text-align: center;
         border: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 20px;
     }
 
     .metric-value {
@@ -48,7 +52,7 @@ def load_css():
     }
 
     .metric-label {
-        font-size: 12px;
+        font-size: 14px;
         opacity: 0.7;
     }
 
@@ -58,15 +62,11 @@ def load_css():
         color: black;
         font-weight: bold;
     }
-                
+
     .stDownloadButton > button {
         background: linear-gradient(135deg, #2563eb, #3b82f6);
         color: white !important;
-    }
-                
-    .stDownloadButton > button:hover {
-        background: linear-gradient(135deg, #2563eb, #3b82f6);
-        color: white !important;
+        border-radius: 10px;
     }
 
     </style>
@@ -74,17 +74,19 @@ def load_css():
 
 load_css()
 
+
 # =========================
-# HEADER (React Style)
+# HEADER
 # =========================
 st.markdown("""
 <div class="glass">
     <h1 style="font-size:38px;">📈 Bitcoin Forecasting Dashboard</h1>
     <p style="opacity:0.7;">
-    Upload data → choose model → generate AI forecasts with evaluation metrics.
+    Upload data → choose model → visualize → forecast → evaluate
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
 # =========================
 # SIDEBAR
@@ -93,28 +95,44 @@ st.sidebar.header("⚙️ Configuration")
 
 uploaded_file = st.sidebar.file_uploader("Upload Dataset", type=["csv", "xlsx"])
 
-# =========================
-# EMPTY STATE (React-style)
-# =========================
 if uploaded_file is None:
-    st.markdown("""
-    <div class="glass" style="text-align:center;padding:40px;">
-        <h2>📂 Upload your Bitcoin dataset</h2>
-        <p style="opacity:0.7;">Start by uploading CSV or Excel file</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.info("📂 Upload a dataset to start")
     st.stop()
 
+
 # =========================
-# LOAD PREVIEW
+# LOAD DATA
 # =========================
 df_preview = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
 
-price_col = st.sidebar.selectbox("Price Column", df_preview.columns)
-model_type = st.sidebar.selectbox("Model", ["naive", "sarima", "prophet", "xgb", "hybrid"])
+price_candidates = detect_price_candidates(df_preview)
+
+price_col = st.sidebar.selectbox(
+    "📈 Price Column (Auto-ranked)",
+    price_candidates
+)
+
+model_type = st.sidebar.selectbox(
+    "Model",
+    ["naive", "sarima", "prophet", "xgb", "hybrid"]
+)
+
 horizon = st.sidebar.slider("Forecast Horizon", 7, 180, 30)
 
-st.sidebar.markdown("---")
+
+# =========================
+# INDICATORS
+# =========================
+st.sidebar.subheader("📊 Indicators")
+
+use_sma = st.sidebar.toggle("SMA (Simple Moving Average)")
+use_ema = st.sidebar.toggle("EMA (Exponential Moving Average)")
+window = st.sidebar.slider("Window", 5, 100, 20)
+
+
+# =========================
+# EVALUATION
+# =========================
 st.sidebar.subheader("Evaluation")
 
 run_backtest = st.sidebar.checkbox("Run Backtest", value=True)
@@ -123,30 +141,36 @@ ci = st.sidebar.slider("Confidence Interval (%)", 80, 99, 95) / 100
 
 run_btn = st.sidebar.button("🚀 Run Forecast")
 
-# =========================
-# MAIN DATA PREVIEW
-# =========================
-st.markdown('<div class="glass">', unsafe_allow_html=True)
-st.subheader("📊 Data Preview")
-st.dataframe(df_preview.head(), use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# PROCESS DATA
+# PROCESSING
 # =========================
-try:
-    df = load_bitcoin_data(uploaded_file, price_col)
-    df = preprocess_data(df)
-    df = resample_data(df)
-    st.success("✅ Data processed successfully")
-except Exception as e:
-    st.error(f"Data error: {e}")
-    st.stop()
+df = load_bitcoin_data(uploaded_file, price_col)
+df = preprocess_data(df)
+df = resample_data(df)
+
+engine = ForecastEngine(df)
+
+engine.add_indicators(
+    use_sma=use_sma,
+    use_ema=use_ema,
+    window=window
+)
+
+df = engine.df
+
 
 # =========================
-# VISUALIZE DATA
+# DATA PREVIEW
 # =========================
-st.markdown("### 📊 Data Overview")
+st.markdown("### 📊 Data Preview")
+st.dataframe(df.head(), use_container_width=True)
+
+
+# =========================
+# CHART
+# =========================
+st.markdown("### 📈 Price Chart")
 
 fig = go.Figure()
 
@@ -158,136 +182,124 @@ fig.add_trace(go.Scatter(
     line=dict(color="#60a5fa", width=2)
 ))
 
+if use_sma and "SMA" in df:
+    fig.add_trace(go.Scatter(
+        x=df["ds"],
+        y=df["SMA"],
+        mode="lines",
+        name="SMA"
+    ))
+
+if use_ema and "EMA" in df:
+    fig.add_trace(go.Scatter(
+        x=df["ds"],
+        y=df["EMA"],
+        mode="lines",
+        name="EMA"
+    ))
+
 fig.update_layout(
     template="plotly_dark",
     height=450,
-    margin=dict(l=10, r=10, t=30, b=10),
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    xaxis=dict(title="Date"),
-    yaxis=dict(title="Price")
+    plot_bgcolor="rgba(0,0,0,0)"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-st.markdown("### 📌 Dataset Summary")
 
-col1, col2, col3 = st.columns(3)
-
-col1.metric("Start Date", str(df["ds"].min().date()))
-col2.metric("End Date", str(df["ds"].max().date()))
-col3.metric("Rows", len(df))
+# =========================
+# SUMMARY
+# =========================
+c1, c2, c3 = st.columns(3)
+c1.metric("Start", str(df["ds"].min().date()))
+c2.metric("End", str(df["ds"].max().date()))
+c3.metric("Rows", len(df))
 
 
 # =========================
-# RUN MODEL
+# PIPELINE
 # =========================
+forecast = None
+
 if run_btn:
 
-    with st.spinner("🚀 Running models..."):
+    with st.spinner("🚀 Running forecasting pipeline..."):
 
-        try:
-            engine = ForecastEngine(df)
+        tab1, tab2 = st.tabs(["📊 Backtest", "📈 Forecast"])
 
-            tab1, tab2 = st.tabs(["📊 Backtest", "📈 Forecast"])
-
-            # =========================
-            # BACKTEST
-            # =========================
-            if run_backtest:
-                with tab1:
-                    train, test, test_forecast, metrics = engine.backtest(
-                        model_type=model_type,
-                        test_size=test_size
-                    )
-
-                    st.markdown("### 📊 Model Metrics")
-
-                    col1, col2, col3, col4 = st.columns(4)
-
-                    col1.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">MAE</div>
-                        <div class="metric-value">{metrics['MAE']:.2f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    col2.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">RMSE</div>
-                        <div class="metric-value">{metrics['RMSE']:.2f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    col3.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">MAPE</div>
-                        <div class="metric-value">{metrics['MAPE']:.2f}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    col4.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">R²</div>
-                        <div class="metric-value">{metrics['R2 Score']:.3f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    fig = engine.plot_backtest(train, test, test_forecast)
-                    st.plotly_chart(fig, use_container_width=True)
-
-            # =========================
-            # FORECAST
-            # =========================
-            with tab2:
-                forecast = engine.forecast(
+        # ================= BACKTEST =================
+        if run_backtest:
+            with tab1:
+                train, test, test_forecast, metrics = engine.backtest(
                     model_type=model_type,
-                    horizon=horizon,
-                    ci=ci
+                    test_size=test_size
                 )
 
-                st.markdown("### 📈 Forecast Chart")
-                fig = plot_forecast(df, forecast)
-                st.plotly_chart(fig, use_container_width=True)
+                st.markdown("### 📊 Metrics")
 
-                # =========================
-                # CONFIDENCE CARDS (React style)
-                # =========================
-                st.markdown("### 🎯 Forecast Summary")
+                cols = st.columns(4)
+                for i, k in enumerate(["MAE", "RMSE", "MAPE", "R2 Score"]):
+                    cols[i].metric(k, f"{metrics[k]:.3f}")
 
-                last = forecast.iloc[-1]
-
-                c1, c2, c3 = st.columns(3)
-
-                c1.markdown(f"""
-                <div class="glass">
-                    <div class="metric-label">Lower Bound</div>
-                    <div class="metric-value">${last['yhat_lower']:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                c2.markdown(f"""
-                <div class="glass">
-                    <div class="metric-label">Forecast</div>
-                    <div class="metric-value">${last['yhat']:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                c3.markdown(f"""
-                <div class="glass">
-                    <div class="metric-label">Upper Bound</div>
-                    <div class="metric-value">${last['yhat_upper']:,.0f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown("### 📄 Forecast Data")
-                st.dataframe(forecast, use_container_width=True)
-
-                st.download_button(
-                    "⬇️ Download Forecast",
-                    forecast.to_csv(index=False),
-                    "forecast.csv"
+                st.plotly_chart(
+                    engine.plot_backtest(train, test, test_forecast),
+                    use_container_width=True
                 )
 
-        except Exception as e:
-            st.error(f"Model error: {e}")
+        # ================= FORECAST =================
+        with tab2:
+            forecast = engine.forecast(
+                model_type=model_type,
+                horizon=horizon,
+                ci=ci
+            )
+
+            st.markdown("### 📈 Forecast")
+
+            st.plotly_chart(
+                plot_forecast(df, forecast),
+                use_container_width=True
+            )
+
+            last = forecast.iloc[-1]
+
+            # =========================
+            # GREEN FORECAST METRICS (FIXED)
+            # =========================
+            c1, c2, c3 = st.columns(3)
+
+            c1.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Lower Bound</div>
+                <div class="metric-value">${last['yhat_lower']:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            c2.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Forecast</div>
+                <div class="metric-value">${last['yhat']:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            c3.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Upper Bound</div>
+                <div class="metric-value">${last['yhat_upper']:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.dataframe(forecast)
+
+
+# =========================
+# DOWNLOAD
+# =========================
+if forecast is not None:
+    st.download_button(
+        "⬇️ Download Forecast",
+        forecast.to_csv(index=False).encode("utf-8"),
+        file_name="forecast.csv",
+        mime="text/csv"
+    )
