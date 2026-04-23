@@ -123,7 +123,7 @@ for _ in range(2):
 
 ---
 
-#### 4.2 Model Selection
+### 4.2 Model Selection
 
 AutoARIMA was evaluated with multiple seasonal periods:
 
@@ -151,7 +151,7 @@ Performance metrics remained consistent:
 
 ---
 
-#### 4.3 Forecast Behavior
+### 4.3 Forecast Behavior
 
 ![Screenshot](media/images/sarima_exp.png)
 
