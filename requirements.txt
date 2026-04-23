@@ -10,3 +10,8 @@ plotly
 pmdarima
 statsmodels
 streamlit
+fastapi
+uvicorn
+pydantic
+python-multipart
+cors
