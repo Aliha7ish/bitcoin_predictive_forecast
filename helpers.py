@@ -25,7 +25,7 @@ def visualize_bitcoin_plotly(df, title="Bitcoin Price Over Time"):
         )
     )
 
-    # Layout styling (important for UX)
+    # Layout styling
     fig.update_layout(
         title=title,
         xaxis_title="Time",
@@ -47,7 +47,7 @@ def plot_forecast(df, forecast):
     fig = go.Figure()
 
     # =========================
-    # 🕯 Candlestick-style (simulated OHLC)
+    # Candlestick-style (simulated OHLC)
     # =========================
     if all(col in df.columns for col in ["open", "high", "low", "close"]):
 
@@ -63,7 +63,7 @@ def plot_forecast(df, forecast):
         ))
 
     else:
-        # fallback line (still smooth)
+        # fallback line
         fig.add_trace(go.Scatter(
             x=df["ds"],
             y=df["y"],
@@ -73,7 +73,7 @@ def plot_forecast(df, forecast):
         ))
 
     # =========================
-    # 📈 Forecast Line (Gradient effect feel)
+    # Forecast Line (Gradient effect feel)
     # =========================
     fig.add_trace(go.Scatter(
         x=forecast["ds"],
@@ -85,7 +85,7 @@ def plot_forecast(df, forecast):
     ))
 
     # =========================
-    # 🎯 Confidence Ribbon (Upper)
+    # Confidence Ribbon (Upper)
     # =========================
     fig.add_trace(go.Scatter(
         x=forecast["ds"],
@@ -96,7 +96,7 @@ def plot_forecast(df, forecast):
     ))
 
     # =========================
-    # 🎯 Confidence Ribbon (Lower + Fill)
+    # Confidence Ribbon (Lower + Fill)
     # =========================
     fig.add_trace(go.Scatter(
         x=forecast["ds"],
@@ -110,7 +110,7 @@ def plot_forecast(df, forecast):
     ))
 
     # =========================
-    # 🎛 Layout upgrades (IMPORTANT)
+    # Layout upgrades
     # =========================
     fig.update_layout(
         template="plotly_dark",
@@ -119,7 +119,7 @@ def plot_forecast(df, forecast):
         plot_bgcolor="rgba(0,0,0,0)",
 
         title=dict(
-            text="Bitcoin Forecast (AI Model)",
+            text="Bitcoin Forecast",
             x=0.5,
             xanchor="center"
         ),
@@ -127,7 +127,7 @@ def plot_forecast(df, forecast):
         hovermode="x unified",
 
         autosize=True,
-        height=600,   # ✅ SAME AS BACKTEST
+        height=600,
 
         margin=dict(
             l=10,

@@ -96,7 +96,7 @@ def load_bitcoin_data(file_path, price_col=None):
         df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
     # -------------------------
-    # PRICE COLUMN HANDLING (FIXED UX)
+    # PRICE COLUMN HANDLING
     # -------------------------
     candidates = detect_price_candidates(df)
 
@@ -111,8 +111,7 @@ def load_bitcoin_data(file_path, price_col=None):
 
     valid_ratio = series.notnull().mean()
 
-    # 🚨 IMPORTANT CHANGE: NO CRASH
-    if valid_ratio < 0.5:
+    if valid_ratio < 0.6:
         # fallback instead of raising error
         price_col = candidates[0]
         series = pd.to_numeric(df[price_col], errors="coerce")

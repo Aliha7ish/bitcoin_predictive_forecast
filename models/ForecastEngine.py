@@ -108,7 +108,7 @@ class ForecastEngine:
         fig = go.Figure()
 
         # =========================
-        # 🕯 Candlestick (if available)
+        # Candlestick (if available)
         # =========================
         if all(col in train.columns for col in ["open", "high", "low", "close"]):
 
@@ -155,7 +155,7 @@ class ForecastEngine:
             ))
 
         # =========================
-        # 🎯 Test Prediction
+        # Test Prediction
         # =========================
         fig.add_trace(go.Scatter(
             x=test_forecast["ds"],
@@ -166,7 +166,7 @@ class ForecastEngine:
         ))
 
         # =========================
-        # 📈 Confidence Ribbon (Test Forecast)
+        # Confidence Ribbon (Test Forecast)
         # =========================
         fig.add_trace(go.Scatter(
             x=test_forecast["ds"],
@@ -186,7 +186,7 @@ class ForecastEngine:
         ))
 
         # =========================
-        # 📊 Future Forecast (optional)
+        # Future Forecast
         # =========================
         if future_forecast is not None:
             fig.add_trace(go.Scatter(
@@ -198,7 +198,7 @@ class ForecastEngine:
             ))
 
         # =========================
-        # 📉 Train/Test Split Marker
+        # Train/Test Split Marker
         # =========================
         split_date = train["ds"].iloc[-1]
 
@@ -210,7 +210,7 @@ class ForecastEngine:
         )
 
         # =========================
-        # 🎛 Layout (MATCH FORECAST STYLE)
+        # Layout
         # =========================
         fig.update_layout(
             template="plotly_dark",
@@ -270,7 +270,7 @@ class ForecastEngine:
 
 
     # =====================================
-    # 6. BACKTEST (NEW 🔥)
+    # 6. BACKTEST
     # =====================================
     def backtest(self, model_type="naive", test_size=30, ci=0.95):
         # -----------------------------
@@ -310,8 +310,8 @@ class ForecastEngine:
         return {
             "naive": "Baseline model (fast, simple)",
             "sarima": "Statistical model (good for seasonality)",
-            "prophet": "Trend + seasonality (robust)",
+            "prophet": "Trend + seasonality",
             "xgb": "Machine learning model",
-            "svm": "Kernel-based ML model",
-            "hybrid": "Stacked ML (best accuracy, slower)"
+            "GAM": "Detrending ML model",
+            "hybrid": "Stacked ML"
         }

@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # =========================
-# CSS (UPDATED)
+# CSS
 # =========================
 def load_css():
     st.markdown("""
@@ -265,7 +265,7 @@ if run_btn:
             last = forecast.iloc[-1]
 
             # =========================
-            # GREEN FORECAST METRICS (FIXED)
+            # GREEN FORECAST METRICS
             # =========================
             c1, c2, c3 = st.columns(3)
 
