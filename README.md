@@ -18,6 +18,17 @@ The system supports:
 
 ---
 
+## Deployed Application
+
+The application is publicly accessible:
+
+[Access the Web Application](https://bitcoinpredictiveforecastgit-zftmxq7wtrncsagxtkct54.streamlit.app/)
+
+It provides an interactive interface for dataset ingestion, model selection, forecasting, and performance evaluation.
+
+---
+
+
 ## 2. Dataset Analysis
 
 ### 2.1 Data Visualization
