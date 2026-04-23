@@ -65,57 +65,71 @@ class MLModel(BaseForecastModel):
             learning_rate=0.05,
         )
 
+
+    def _to_log(self, y):
+        y = np.maximum(y, 1e-8)   # avoid zero/negative issues
+        return np.log(y)
+
+
+    def _from_log(self, y):
+        return np.exp(y)
+
     # =====================================
     # HYBRID TRAINING (GAM + XGB)
     # =====================================
     def _train_hybrid(self, X_train, y_train):
 
+        # =============================
+        # LOG TRANSFORM TARGET
+        # =============================
+        y_train_log = self._to_log(y_train)
+
         # -----------------------------
         # TREND MODEL (GAM)
         # -----------------------------
-        t_train = np.arange(len(y_train)).reshape(-1, 1)
+        t_train = np.arange(len(y_train_log)).reshape(-1, 1)
 
-        gam = LinearGAM(s(0)).gridsearch(t_train, y_train)
+        gam = LinearGAM(s(0)).gridsearch(t_train, y_train_log)
 
         trend_train = pd.Series(gam.predict(t_train), index=y_train.index)
 
         # -----------------------------
-        # RESIDUALS
+        # RESIDUALS (IN LOG SPACE)
         # -----------------------------
-        residuals = y_train - trend_train
+        residuals = y_train_log - trend_train
 
         # XGB training
         xgb = self._get_xgb()
         xgb.fit(X_train, residuals)
 
-        return gam, xgb
+        # =============================
+        # RETURN EVERYTHING NEEDED
+        # =============================
+        return gam, xgb, y_train_log, trend_train
+
+
 
     # =====================================
     # FORECAST
     # =====================================
     def forecast(self, horizon=30, ci=0.95, freq="D"):
-        # =====================================
-        # 1. SPLIT
-        # =====================================
-        df = self._create_ml_features()
 
-        split_idx = len(df)
+        df = self._create_ml_features()
 
         X = df.drop(columns=["y", "ds"])
         y = df["y"]
 
-        # TRAIN ONLY
         X_train = X.copy()
         y_train = y.copy()
 
-        # =====================================
-        # 2. TRAIN HYBRID
-        # =====================================
-        gam, xgb = self._train_hybrid(X_train, y_train)
+        # =============================
+        # TRAIN
+        # =============================
+        gam, xgb, y_train_log, trend_train = self._train_hybrid(X_train, y_train)
 
-        # =====================================
-        # 3. FUTURE TIME INDEX
-        # =====================================
+        # =============================
+        # FUTURE DATES
+        # =============================
         future_dates = pd.date_range(
             self.df["ds"].iloc[-1],
             periods=horizon + 1,
@@ -124,14 +138,14 @@ class MLModel(BaseForecastModel):
 
         t_future = np.arange(len(y_train), len(y_train) + horizon).reshape(-1, 1)
 
-        # =====================================
-        # 4. GAM TREND
-        # =====================================
-        trend_future = gam.predict(t_future)
+        # =============================
+        # GAM TREND (LOG SPACE)
+        # =============================
+        trend_future_log = gam.predict(t_future)
 
-        # =====================================
-        # 5. FUTURE FEATURES (SAFE)
-        # =====================================
+        # =============================
+        # FUTURE FEATURES
+        # =============================
         future_df = pd.DataFrame({"ds": future_dates})
 
         full_df = pd.concat([self.df, future_df], ignore_index=True)
@@ -139,21 +153,33 @@ class MLModel(BaseForecastModel):
 
         X_future = full_df.tail(horizon).drop(columns=["y", "ds"])
 
-        # =====================================
-        # 6. RESIDUAL PREDICTION
-        # =====================================
+        # =============================
+        # RESIDUAL PREDICTION
+        # =============================
         residual_future = xgb.predict(X_future)
 
-        # =====================================
-        # 7. FINAL OUTPUT
-        # =====================================
-        yhat = trend_future + residual_future
+        # =============================
+        # FINAL PREDICTION (LOG SPACE)
+        # =============================
+        yhat_log = trend_future_log + residual_future
 
-        std = np.std(y_train)
+        # =============================
+        # BACK TO PRICE SCALE
+        # =============================
+        yhat = self._from_log(yhat_log)
+
+        # =============================
+        # SAFE STD (FROM TRAIN RESIDUALS)
+        # =============================
+        residual_train = y_train_log - trend_train
+        std_log = np.std(residual_train)
+
+        yhat_lower = self._from_log(yhat_log - 1.96 * std_log)
+        yhat_upper = self._from_log(yhat_log + 1.96 * std_log)
 
         return pd.DataFrame({
             "ds": future_dates,
             "yhat": yhat,
-            "yhat_lower": yhat - 1.96 * std,
-            "yhat_upper": yhat + 1.96 * std
+            "yhat_lower": yhat_lower,
+            "yhat_upper": yhat_upper
         })

@@ -104,103 +104,167 @@ class ForecastEngine:
     # 5. VISUALIZATION (SHARED)
     # =====================================
     def plot_backtest(self, train, test, test_forecast, future_forecast=None):
+
         fig = go.Figure()
 
-        # =====================================
-        # TRAIN
-        # =====================================
-        fig.add_trace(go.Scatter(
-            x=train["ds"],
-            y=train["y"],
-            mode="lines",
-            name="Train",
-            line=dict(color="blue")
-        ))
+        # =========================
+        # 🕯 Candlestick (if available)
+        # =========================
+        if all(col in train.columns for col in ["open", "high", "low", "close"]):
 
-        # =====================================
-        # TEST (ACTUAL)
-        # =====================================
-        fig.add_trace(go.Scatter(
-            x=test["ds"],
-            y=test["y"],
-            mode="lines",
-            name="Test (Actual)",
-            line=dict(color="orange")
-        ))
+            fig.add_trace(go.Candlestick(
+                x=train["ds"],
+                open=train["open"],
+                high=train["high"],
+                low=train["low"],
+                close=train["close"],
+                name="Train Price",
+                increasing_line_color="#22c55e",
+                decreasing_line_color="#ef4444"
+            ))
 
-        # =====================================
-        # TEST PREDICTION
-        # =====================================
+            fig.add_trace(go.Candlestick(
+                x=test["ds"],
+                open=test["open"],
+                high=test["high"],
+                low=test["low"],
+                close=test["close"],
+                name="Test Price",
+                increasing_line_color="#f59e0b",
+                decreasing_line_color="#ef4444"
+            ))
+
+        else:
+            # =========================
+            # 📊 Train / Test lines (fallback)
+            # =========================
+            fig.add_trace(go.Scatter(
+                x=train["ds"],
+                y=train["y"],
+                mode="lines",
+                name="Train",
+                line=dict(color="#60a5fa", width=2)
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=test["ds"],
+                y=test["y"],
+                mode="lines",
+                name="Test (Actual)",
+                line=dict(color="#f59e0b", width=2)
+            ))
+
+        # =========================
+        # 🎯 Test Prediction
+        # =========================
         fig.add_trace(go.Scatter(
             x=test_forecast["ds"],
             y=test_forecast["yhat"],
             mode="lines",
             name="Test Prediction",
-            line=dict(dash="dash", color="red")
+            line=dict(color="#ef4444", width=3, dash="dash")
         ))
 
-        # =====================================
-        # FUTURE FORECAST (OPTIONAL)
-        # =====================================
+        # =========================
+        # 📈 Confidence Ribbon (Test Forecast)
+        # =========================
+        fig.add_trace(go.Scatter(
+            x=test_forecast["ds"],
+            y=test_forecast["yhat_upper"],
+            line=dict(width=0),
+            showlegend=False
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=test_forecast["ds"],
+            y=test_forecast["yhat_lower"],
+            fill="tonexty",
+            fillcolor="rgba(239,68,68,0.12)",  # red confidence zone
+            line=dict(width=0),
+            name="Test Confidence",
+            hoverinfo="skip"
+        ))
+
+        # =========================
+        # 📊 Future Forecast (optional)
+        # =========================
         if future_forecast is not None:
             fig.add_trace(go.Scatter(
                 x=future_forecast["ds"],
                 y=future_forecast["yhat"],
                 mode="lines",
                 name="Future Forecast",
-                line=dict(dash="dot", color="green")
+                line=dict(color="#22c55e", width=3)
             ))
 
-        # =====================================
-        # SPLIT LINES (IMPORTANT VISUAL CUE)
-        # =====================================
-        train_end = train["ds"].iloc[-1]
+        # =========================
+        # 📉 Train/Test Split Marker
+        # =========================
+        split_date = train["ds"].iloc[-1]
 
-        fig.add_shape(
-            type="line",
-            x0=train_end,
-            x1=train_end,
-            y0=0,
-            y1=1,
-            xref="x",
-            yref="paper",
-            line=dict(
-                color="yellow",
-                width=4,
-                dash="dash"
-            ),
-            layer="above"   # 🔥 IMPORTANT
+        fig.add_vline(
+            x=split_date,
+            line_width=3,
+            line_dash="dash",
+            line_color="yellow"
         )
 
-        fig.add_vrect(
-            x0=self.df["ds"].min(),
-            x1=train_end,
-            fillcolor="blue",
-            opacity=0.05,
-            line_width=0,
-            layer="below"
-        )
-
-        fig.add_vrect(
-            x0=train_end,
-            x1=self.df["ds"].max(),
-            fillcolor="orange",
-            opacity=0.05,
-            line_width=0,
-            layer="below"
-        )
-
-        # =====================================
-        # LAYOUT
-        # =====================================
+        # =========================
+        # 🎛 Layout (MATCH FORECAST STYLE)
+        # =========================
         fig.update_layout(
-            title="Train / Test / Forecast Split Visualization",
-            hovermode="x unified",
             template="plotly_dark",
-            height=650
+
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+
+            title=dict(
+                text="Backtest: Train vs Test vs Prediction",
+                x=0.5,
+                xanchor="center"
+            ),
+
+            hovermode="x unified",
+
+            autosize=True,
+            height=600,
+
+            margin=dict(
+                l=10,
+                r=10,
+                t=60,
+                b=40
+            ),
+
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5
+            ),
+
+            xaxis=dict(
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=7, label="1W", step="day", stepmode="backward"),
+                        dict(count=1, label="1M", step="month", stepmode="backward"),
+                        dict(count=6, label="6M", step="month", stepmode="backward"),
+                        dict(step="all")
+                    ])
+                ),
+                rangeslider=dict(visible=True),
+                type="date",
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.05)"
+            ),
+
+            yaxis=dict(
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.05)"
+            )
         )
 
-        fig.update_xaxes(rangeslider_visible=True)
 
         return fig
 

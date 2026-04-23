@@ -96,6 +96,11 @@ def load_bitcoin_data(file_path, price_col):
 
     series = df[price_col]
 
+    if not isinstance(series, pd.Series):
+        raise ValueError(f"{price_col} is not a valid column")
+
+    series = pd.to_numeric(series, errors="coerce")
+
     valid_ratio = series.notnull().mean()
 
     if valid_ratio < 0.7:
