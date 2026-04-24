@@ -308,10 +308,10 @@ The system follows a structured pipeline:
 2. Automatic column detection and validation
 3. Data visualization
 4. Model configuration:
-  - Model selection
-  - Forecast horizon
-  - Confidence interval
-  - Backtesting option
+    - Model selection
+    - Forecast horizon
+    - Confidence interval
+    - Backtesting option
 5. Forecast generation
 6. Performance evaluation
 
