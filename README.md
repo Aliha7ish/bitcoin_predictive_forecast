@@ -49,6 +49,14 @@ Analysis of daily Bitcoin closing prices reveals the following:
 
 These observations motivate decomposition into trend, seasonal, and residual components.
 
+### 2.3 Dataset Source
+
+The dataset used for experimentation and model evaluation is sourced from Kaggle:
+
+- Dataset Name: Comprehensive BTCUSD 1m Data
+- Source: [Comprehensive BTCUSD 1m Data](https://www.kaggle.com/datasets/imranbukhari/comprehensive-btcusd-1m-data)
+- File Used: `BTCUSD_1m_Binance.csv`
+
 ---
 
 ## 3. Machine Learning Experiments
