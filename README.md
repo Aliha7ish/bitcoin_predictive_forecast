@@ -505,7 +505,7 @@ Docker support via configuration in parent project.
 
 ## 15. Acknowledgment
 
-Parts of the user interface were accelerated using :contentReference[oaicite:0]{index=0}, an AI-assisted development platform for generating and refining frontend components.
+Parts of the user interface were accelerated using `Lovable`, an AI-assisted development platform for generating and refining frontend components.
 
 Lovable was primarily used to:
 - Bootstrap initial UI layouts and component structures
