@@ -498,4 +498,4 @@ The final application reflects significant customization, optimization, and exte
 
 ## 16. Author
 
-Ali Mohamed Hashish
+**Ali Mohamed Hashish**
