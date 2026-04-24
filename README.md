@@ -357,13 +357,13 @@ const isMobile = useMobile();
 
 ```bash
 cd bio-predictive-forecast
-bun install
+npm install
 ```
 
 ### 9.3 Development Server
 
 ```bash
-bun run dev
+npm run dev
 ```
 
 Launches development server at `http://localhost:5173` with hot module replacement (HMR).
@@ -371,7 +371,7 @@ Launches development server at `http://localhost:5173` with hot module replaceme
 ### 9.4 Production Build
 
 ```bash
-bun run build
+npm run build
 ```
 
 Generates optimized static assets in `dist/` directory.
@@ -379,10 +379,25 @@ Generates optimized static assets in `dist/` directory.
 ### 9.5 Run Tests
 
 ```bash
-bun run test
+npm run test
 ```
 
 Executes test suite via Vitest.
+
+---
+
+### 9.6 Running the API Server
+
+To start the backend server locally, run the following command:
+In new terminal:
+
+```bash
+cd bitcoin_predictive_forecast
+```
+
+```bash
+python -m uvicorn server:app --reload
+```
 
 ---
 
