@@ -348,6 +348,12 @@ const isMobile = useMobile();
 
 ## 9. Installation and Setup
 
+Before starting, make sure you are on the correct working branch:
+
+```bash
+git checkout feature/forecast-dashboard
+```
+
 ### 9.1 Prerequisites
 
 - Node.js 18+ (or Bun 1.0+)
@@ -389,6 +395,7 @@ Executes test suite via Vitest.
 ### 9.6 Running the API Server
 
 To start the backend server locally, run the following command:
+
 In new terminal:
 
 ```bash
