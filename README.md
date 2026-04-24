@@ -35,6 +35,8 @@ It provides an interactive interface for dataset ingestion, model selection, for
 
 ![Data Visualization](media/images/data.png)
 
+---
+
 ### 2.2 Observations
 
 Analysis of daily Bitcoin closing prices reveals the following:
@@ -48,6 +50,8 @@ Analysis of daily Bitcoin closing prices reveals the following:
 - Significant market shifts (e.g., 2021, late 2024) likely driven by macroeconomic factors  
 
 These observations motivate decomposition into trend, seasonal, and residual components.
+
+---
 
 ### 2.3 Dataset Source
 
